@@ -54,6 +54,7 @@ class DecodedEnum:
 		self.names = {}
 
 	def add(self, name, value):
+		logger.debug("add name=%s value=%d",name,value)
 		self.names[name] = value
 		self.values[value] = name
 
@@ -64,10 +65,12 @@ class DecodedEnum:
 
 		@get.register(int)
 		def _(item, self):
+			# get value -> name
 			return self.values[item]
 
 		@get.register(str)
 		def _(item, self):
+			# get name -> value
 			return self.names[item]
 
 		# functools.singledispatch works on the first arg so have to do a
@@ -124,7 +127,7 @@ def enum_counter(reader):
 				if m:
 					print("groups={}".format(m.groups()))
 					name = m.group(1)
-					logging.debug("found enum element=%s", name)
+					logging.debug("found enum element=%s counter=%d", name, counter)
 					enum.add(name, counter)
 					counter += 1
 
@@ -240,23 +243,9 @@ enum nl80211_nan_srf_attributes {
 		assert name in srf, name
 		assert srf[name] == value, (name,value,srf[name])
 
-# davep 20181201 ; one regex to rule them all is becoming messy. Let's try pyparsing.
-# 		I'm starting with the verilogParser.py
-from pyparsing import Literal, CaselessLiteral, Keyword, Word, OneOrMore, ZeroOrMore, \
-        Forward, NotAny, delimitedList, Group, Optional, Combine, alphas, nums, restOfLine, cStyleComment, \
-        alphanums, printables, dblQuotedString, empty, ParseException, ParseResults, MatchFirst, oneOf, GoToColumn, \
-        ParseResults,StringEnd, FollowedBy, ParserElement, And, Regex, cppStyleComment#,__version__
-import pyparsing
-
-def test_pyparsing():
-	pass
-
 def test():
-#	return test_pyparsing()
-
 	test_enum_regex()
 	test_symbol_regex()
-
 #	test_parse()
 
 def parse(infile):
@@ -269,13 +258,23 @@ def parse_file(infilename):
 		return parse(infile)
 
 def main():
-	return test()
+#	return test()
 
 	infilename = "nl80211.h"
 	enums = parse_file(infilename)
+	print("found len=%d enums in file=%s" % (len(enums),infilename))
 
-	infile = open(infilename,"r")
-	infile.close()
+	for e in enums:
+		print("{} {} {}".format(e.name, len(e.values), len(e.names)))
+
+	enum_names = {e.name: e for e in enums}
+	print(enum_names.keys())
+	nl80211_attrs = enum_names["nl80211_attrs"]
+	mystery_number = 46
+	print("num=%d enum=%s" % (mystery_number, nl80211_attrs[mystery_number]))
+
+#	infile = open(infilename,"r")
+#	infile.close()
 
 if __name__ == '__main__':
 	logging.basicConfig(level=logging.DEBUG)
