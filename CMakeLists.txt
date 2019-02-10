@@ -6,6 +6,8 @@ project(wlan_netlink C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_BUILD_TYPE Debug)
 
+set(MY_DEBUG_OPTIONS -Wall -Wextra -Wshadow -pedantic)
+
 include_directories(.)
 
 find_package(PkgConfig REQUIRED)
@@ -16,6 +18,7 @@ add_library(hdump OBJECT hdump.c)
 add_executable(wlan_netlink $<TARGET_OBJECTS:hdump> nl-wifi.c)
 target_include_directories(wlan_netlink PUBLIC ${LIBNL_INCLUDE_DIRS})
 target_link_libraries(wlan_netlink ${LIBNL_LIBRARIES})
+target_compile_options(wlan_netlink PUBLIC $<$<CONFIG:DEBUG>:${MY_DEBUG_OPTIONS}>)
 
 add_executable(my-ip my-ip.c)
 target_include_directories(my-ip PUBLIC ${LIBNL_INCLUDE_DIRS})

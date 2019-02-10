@@ -55,7 +55,7 @@ void peek(struct nl_msg *msg)
 	nlmsg_attrlen(nlh, hdrlen);
 
 	nlmsg_for_each_attr(attr, nlh, 0, rem) {
-		printf("peek %p type=%d len=%d\n", attr, nla_type(attr), nla_len(attr));
+		printf("peek type=%d len=%d\n", nla_type(attr), nla_len(attr));
 		i++;
 	}
 }
@@ -683,7 +683,7 @@ int valid_handler(struct nl_msg *msg, void *arg)
 	int datalen = nlmsg_datalen(hdr);
 	printf("datalen=%d attrlen=%d\n", datalen, nlmsg_attrlen(hdr,0));
 
-	struct nlattr *tb_msg[NL80211_ATTR_MAX + 1] = {};
+	struct nlattr *tb_msg[NL80211_ATTR_MAX + 1];
 
 	struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
 	nla_parse(tb_msg, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
@@ -750,7 +750,7 @@ int valid_handler(struct nl_msg *msg, void *arg)
 	if (tb_msg[NL80211_ATTR_WIPHY_TX_POWER_LEVEL]) {
 		counter--;
 		uint32_t tx_power = nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_TX_POWER_LEVEL]);
-		printf("tx_power_level=%" PRIu32 "\n");
+		printf("tx_power_level=%" PRIu32 "\n", tx_power);
 		// printf taken from iw-4.14 interface.c print_iface_handler()
 		printf("tx_power %d.%.2d dBm\n", tx_power / 100, tx_power % 100);
 	}
@@ -818,7 +818,7 @@ int valid_handler(struct nl_msg *msg, void *arg)
 
 		enum nl80211_band_attr band = nla_get_u32(tb_msg[NL80211_ATTR_BANDS]);
 		// results are kinda boring ... 
-		printf("attr_bands=%#" PRIx32 "\n");
+		printf("attr_bands=%#" PRIx32 "\n", band);
 	}
 
 	if (tb_msg[NL80211_ATTR_BSS]) {
