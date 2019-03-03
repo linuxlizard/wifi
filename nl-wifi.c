@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <assert.h>
 
 #include <sys/socket.h>
 #include <linux/if_ether.h>
@@ -606,7 +607,9 @@ void decode_attr_bss( struct nlattr *attr )
 	if (bss[NL80211_BSS_INFORMATION_ELEMENTS]) {
 		counter--;
 		uint8_t *ie = nla_data(bss[NL80211_BSS_INFORMATION_ELEMENTS]);
-		hex_dump("ie", ie, nla_len(bss[NL80211_BSS_INFORMATION_ELEMENTS]));
+		size_t ie_len = nla_len(bss[NL80211_BSS_INFORMATION_ELEMENTS]);
+		printf("found len=%zu of information elements\n", ie_len);
+		hex_dump("ie", ie, ie_len);
 	}
 
 	if (bss[NL80211_BSS_SIGNAL_MBM]) {
@@ -829,9 +832,51 @@ int valid_handler(struct nl_msg *msg, void *arg)
 
 	printf("%s counter=%zd unhandled attributes\n", __func__, counter);
 
-	return NL_OK;
+	return NL_SKIP;
+//	return NL_OK;
 }
 
+static int error_handler(struct sockaddr_nl *nla, struct nlmsgerr *err, void *arg)
+{
+	printf("%s\n", __func__);
+	(void)nla;
+	(void)err;
+	(void)arg;
+
+	assert(0);
+	return NL_STOP;
+}
+
+static int finish_handler(struct nl_msg *msg, void *arg)
+{
+	printf("%s\n", __func__);
+	(void)msg;
+
+	int *ret = arg;
+	*ret = 0;
+	return NL_SKIP;
+}
+
+static int ack_handler(struct nl_msg *msg, void *arg)
+{
+	printf("%s\n", __func__);
+	(void)msg;
+
+	int *ret = arg;
+	*ret = 0;
+	return NL_STOP;
+}
+
+#if 0
+static int msg_in_handler(struct nl_msg *msg, void *arg )
+{
+	printf("%s\n", __func__);
+	/* "Called for every message received." */
+	(void)msg;
+	(void)arg;
+	return NL_OK;
+}
+#endif
 
 int main(void)
 {
@@ -848,12 +893,30 @@ int main(void)
 	int retcode = genl_connect(nl_sock);
 	printf("genl_connect retcode=%d\n", retcode);
 
+	/* from iw.c */
+	nl_socket_set_buffer_size(nl_sock, 8192, 8192);
+
 	int nl80211_id = genl_ctrl_resolve(nl_sock, NL80211_GENL_NAME);
+	if (nl80211_id < 0) {
+		exit(EXIT_FAILURE);
+	}
+
 	printf("nl80211_id=%d\n", nl80211_id);
+
+	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEBUG);
+	struct nl_cb *s_cb = nl_cb_alloc(NL_CB_DEBUG);
+
+	/* davep 20190228 ; copied from iw.c */
+	int err=1;
+	nl_cb_err(cb, NL_CB_CUSTOM, error_handler, &err);
+	nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, finish_handler, &err);
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler, &err);
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, valid_handler, NULL);
+
+	nl_socket_set_cb(nl_sock, s_cb);
 
 	struct nl_msg *msg;
 	msg = nlmsg_alloc();
-	printf("msg=%p\n", (void *)msg);
 
 	/* @NL80211_CMD_GET_INTERFACE: Request an interface's configuration;
 	 * either a dump request for all interfaces or a specific get with a
@@ -867,21 +930,18 @@ int main(void)
 		goto leave;
 	}
 
-	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
-	printf("cb=%p\n", (void *)cb);
-	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, valid_handler, NULL);
-	nl_socket_set_cb(nl_sock, cb);
-
+	nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifidx);
 	nl_msg_dump(msg,stdout);
 
 	retcode = nl_send_auto(nl_sock, msg);
-	printf("retcode=%d\n", retcode);
+	printf("nl_send_auto retcode=%d\n", retcode);
 
-	retcode = nl_recvmsgs_default(nl_sock);
-	printf("retcode=%d\n", retcode);
-
-//	nl_cb_put(cb);
-//	cb = NULL;
+	while (err > 0) {
+		printf("calling GET_INTERFACE nl_recvmsgs_default...\n");
+		retcode = nl_recvmsgs(nl_sock, cb);
+		printf("GET_INTERFACE nl_recvmsgs_default retcode=%d err=%d\n", retcode, err);
+	}
+	err = 1;
 
 	nlmsg_free(msg);
 	msg = NULL;
@@ -889,12 +949,6 @@ int main(void)
 
 	/* how about we get really daring and do a 2nd message (Oooo! Ahhh!) */
 	msg = nlmsg_alloc();
-	printf("msg=%p\n", (void *)msg);
-
-//	cb = nl_cb_alloc(NL_CB_DEFAULT);
-//	printf("cb=%p\n", (void *)cb);
-//	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, valid_handler, NULL);
-//	nl_socket_set_cb(nl_sock, cb);
 
 	p = genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ, nl80211_id, 0, 
 						NLM_F_DUMP, NL80211_CMD_GET_STATION, 0);
@@ -904,17 +958,18 @@ int main(void)
 		goto leave;
 	}
 
-	/* XXX 8 hardwires to wlp1s0 */
-	int ifindex = 8;
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifindex);
+	nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifidx);
 	nl_msg_dump(msg,stdout);
 
 	retcode = nl_send_auto(nl_sock, msg);
 	printf("retcode=%d\n", retcode);
 
-	printf("calling nl_recvmsgs_default...\n");
-	retcode = nl_recvmsgs_default(nl_sock);
-	printf("retcode=%d\n", retcode);
+	while (err > 0) {
+		printf("calling GET_STATION nl_recvmsgs_default...\n");
+		retcode = nl_recvmsgs(nl_sock, cb);
+		printf("GET_STATION nl_recvmsgs_default retcode=%d err=%d\n", retcode, err);
+	}
+	err = 1;
 
 	nlmsg_free(msg);
 	msg = NULL;
@@ -931,20 +986,23 @@ int main(void)
 		goto leave;
 	}
 
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifindex);
+	nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifidx);
 	retcode = nl_send_auto(nl_sock, msg);
 	printf("retcode=%d\n", retcode);
 
-	printf("GET_WIPHY calling nl_recvmsgs_default...\n");
-	retcode = nl_recvmsgs_default(nl_sock);
-	printf("GET_WIPHY retcode=%d\n", retcode);
+	while (err > 0) {
+		printf("GET_WIPHY calling nl_recvmsgs_default...\n");
+		retcode = nl_recvmsgs(nl_sock, cb);
+		printf("GET_WIPHY nl_recvmsgs_default retcode=%d err=%d\n", retcode, err);
+	}
+	err = 1;
 
 	nlmsg_free(msg);
 	msg = NULL;
 
-	/* THE BIG KAHOONA! */
+
+	/* SCAN -- THE BIG KAHOONA! */
 	msg = nlmsg_alloc();
-	printf("msg=%p\n", (void *)msg);
 
 	p = genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ, nl80211_id, 0, 
 						NLM_F_DUMP, NL80211_CMD_GET_SCAN, 0);
@@ -954,13 +1012,15 @@ int main(void)
 		goto leave;
 	}
 
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifindex);
+	nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifidx);
 	retcode = nl_send_auto(nl_sock, msg);
 	printf("retcode=%d\n", retcode);
 
-	printf("GET_SCAN calling nl_recvmsgs_default...\n");
-	retcode = nl_recvmsgs_default(nl_sock);
-	printf("GET_SCAN retcode=%d\n", retcode);
+	while (err > 0) {
+		printf("GET_SCAN calling nl_recvmsgs_default...\n");
+		retcode = nl_recvmsgs(nl_sock, cb);
+		printf("GET_SCAN retcode=%d err=%d\n", retcode, err);
+	}
 
 	nlmsg_free(msg);
 	msg = NULL;
