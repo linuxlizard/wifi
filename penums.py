@@ -257,6 +257,23 @@ def parse_file(infilename):
 	with open(infilename, "r") as infile:
 		return parse(infile)
 
+def print_to_string(enum):
+	# print a C function to conver the enum value to a string
+	fn = """
+const char * const to_string_{0}(enum {0} val)
+{{"""
+	print(fn.format(enum.name, enum.name))
+
+	ret = "\t\tcase {0} : return \"{0}\";"
+
+	print("\tswitch(val) {")
+	for name in enum.names:
+
+		print(ret.format(name, name))
+	print("\t\tdefault: return \"unknown\";")
+	print("\t}")  # switch close
+	print("}") # function close
+
 def main():
 #	return test()
 
@@ -268,10 +285,17 @@ def main():
 		print("{} {} {}".format(e.name, len(e.values), len(e.names)))
 
 	enum_names = {e.name: e for e in enums}
-	print(enum_names.keys())
+
 	nl80211_attrs = enum_names["nl80211_attrs"]
-	mystery_number = 46
-	print("num=%d enum=%s" % (mystery_number, nl80211_attrs[mystery_number]))
+	mystery_numbers = (1,3,44,45,153)
+	for n in mystery_numbers:
+		print("num=%d enum=%s" % (n, nl80211_attrs[n]))
+
+	commands = enum_names["nl80211_commands"]
+	print(commands.name)
+	print(commands.names)
+
+	print_to_string(commands)
 
 #	infile = open(infilename,"r")
 #	infile.close()

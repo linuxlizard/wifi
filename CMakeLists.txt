@@ -14,8 +14,9 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBNL REQUIRED libnl-3.0 libnl-genl-3.0 libnl-route-3.0)
 
 add_library(hdump OBJECT hdump.c)
+#add_library(nlnames OBJECT nlnames.c)
 
-add_executable(wlan_netlink $<TARGET_OBJECTS:hdump> nl-wifi.c)
+add_executable(wlan_netlink $<TARGET_OBJECTS:hdump> nl-wifi.c nlnames.c)
 target_include_directories(wlan_netlink PUBLIC ${LIBNL_INCLUDE_DIRS})
 target_link_libraries(wlan_netlink ${LIBNL_LIBRARIES})
 target_compile_options(wlan_netlink PUBLIC $<$<CONFIG:DEBUG>:${MY_DEBUG_OPTIONS}>)
