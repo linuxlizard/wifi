@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <errno.h>
 #include <assert.h>
 
 #include <sys/socket.h>
@@ -18,6 +19,7 @@
 #include <linux/nl80211.h>
 
 #include "hdump.h"
+#include "nlnames.h"
 
 /* iw-4.9 iw.h */
 #define BIT(x) (1ULL<<(x))
@@ -679,7 +681,7 @@ int valid_handler(struct nl_msg *msg, void *arg)
 
 //	hex_dump("msg", (const unsigned char *)msg, 128);
 
-	nl_msg_dump(msg,stdout);
+//	nl_msg_dump(msg,stdout);
 
 	struct nlmsghdr *hdr = nlmsg_hdr(msg);
 
@@ -691,6 +693,8 @@ int valid_handler(struct nl_msg *msg, void *arg)
 	struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
 	nla_parse(tb_msg, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
 		  genlmsg_attrlen(gnlh, 0), NULL);
+
+	printf("%s cmd=%d\n", __func__, (int)(gnlh->cmd));
 
 	// report attrs not handled in my crappy code below
 	ssize_t counter=0;
@@ -830,6 +834,21 @@ int valid_handler(struct nl_msg *msg, void *arg)
 		decode_attr_bss(tb_msg[NL80211_ATTR_BSS]);
 	}
 
+	if (tb_msg[NL80211_ATTR_SCAN_FREQUENCIES]) {
+		counter--;
+		printf("scan_frequencies\n");
+		struct nlattr *nst;
+		int rem_nst;
+		nla_for_each_nested(nst, tb_msg[NL80211_ATTR_SCAN_FREQUENCIES], rem_nst)
+			printf(" %d", nla_get_u32(nst));
+		printf(",");
+	}
+
+	if (tb_msg[NL80211_ATTR_SCAN_SSIDS]) {
+		counter--;
+		printf("scan_ssids\n");
+	}
+
 	printf("%s counter=%zd unhandled attributes\n", __func__, counter);
 
 	return NL_SKIP;
@@ -878,10 +897,173 @@ static int msg_in_handler(struct nl_msg *msg, void *arg )
 }
 #endif
 
+/* from iw genl.c */
+struct handler_args {
+	const char *group;
+	int id;
+};
+
+/* from iw genl.c */
+static int family_handler(struct nl_msg *msg, void *arg)
+{
+	struct handler_args *grp = arg;
+	struct nlattr *tb[CTRL_ATTR_MAX + 1];
+	struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
+	struct nlattr *mcgrp;
+	int rem_mcgrp;
+
+	printf("%s\n", __func__);
+	nla_parse(tb, CTRL_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
+		  genlmsg_attrlen(gnlh, 0), NULL);
+
+	if (!tb[CTRL_ATTR_MCAST_GROUPS])
+		return NL_SKIP;
+
+	nla_for_each_nested(mcgrp, tb[CTRL_ATTR_MCAST_GROUPS], rem_mcgrp) {
+		struct nlattr *tb_mcgrp[CTRL_ATTR_MCAST_GRP_MAX + 1];
+
+		nla_parse(tb_mcgrp, CTRL_ATTR_MCAST_GRP_MAX,
+			  nla_data(mcgrp), nla_len(mcgrp), NULL);
+
+		if (!tb_mcgrp[CTRL_ATTR_MCAST_GRP_NAME] ||
+		    !tb_mcgrp[CTRL_ATTR_MCAST_GRP_ID])
+			continue;
+		if (strncmp(nla_data(tb_mcgrp[CTRL_ATTR_MCAST_GRP_NAME]),
+			    grp->group, nla_len(tb_mcgrp[CTRL_ATTR_MCAST_GRP_NAME])))
+			continue;
+		grp->id = nla_get_u32(tb_mcgrp[CTRL_ATTR_MCAST_GRP_ID]);
+		break;
+	}
+
+	return NL_SKIP;
+}
+
+/* from iw genl.c but I renamed from nl_get_multicast_id() because it was
+ * confusing me thinking it was part of the libnl. 
+ */
+int get_multicast_id(struct nl_sock *sock, const char *family, const char *group)
+{
+	struct nl_msg *msg;
+	struct nl_cb *cb;
+	int ret, ctrlid;
+	struct handler_args grp = {
+		.group = group,
+		.id = -ENOENT,
+	};
+
+	msg = nlmsg_alloc();
+	if (!msg)
+		return -ENOMEM;
+
+	cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!cb) {
+		ret = -ENOMEM;
+		goto out_fail_cb;
+	}
+
+	ctrlid = genl_ctrl_resolve(sock, "nlctrl");
+
+	genlmsg_put(msg, 0, 0, ctrlid, 0,
+		    0, CTRL_CMD_GETFAMILY, 0);
+
+	ret = -ENOBUFS;
+	NLA_PUT_STRING(msg, CTRL_ATTR_FAMILY_NAME, family);
+
+	ret = nl_send_auto_complete(sock, msg);
+	if (ret < 0)
+		goto out;
+
+	ret = 1;
+
+	nl_cb_err(cb, NL_CB_CUSTOM, error_handler, &ret);
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler, &ret);
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, family_handler, &grp);
+
+	while (ret > 0)
+		nl_recvmsgs(sock, cb);
+
+	if (ret == 0)
+		ret = grp.id;
+ nla_put_failure:
+ out:
+	nl_cb_put(cb);
+ out_fail_cb:
+	nlmsg_free(msg);
+	return ret;
+}
+
+/* from iw event.c */
+static int no_seq_check(struct nl_msg *msg, void *arg)
+{
+	(void)msg;
+	(void)arg;
+
+	return NL_OK;
+}
+
+int event_listener(void)
+{
+	struct nl_sock* nl_sock = nl_socket_alloc();
+	if (!nl_sock) {
+		goto leave;
+	}
+
+	int err = genl_connect(nl_sock);
+	if (err < 0) {
+		fprintf(stderr,"genl_connect failed err=%d\n", err);
+		goto leave;
+	}
+
+	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEBUG);
+	if (!cb) {
+		fprintf(stderr,"nl_cb_alloc() failed\n");
+		goto leave;
+	}
+
+	int mcid = get_multicast_id(nl_sock, "nl80211", "scan");
+	if (mcid < 0) {
+		fprintf(stderr, "get_multicast_id err=%d \"%s\"\n", mcid, strerror(mcid));
+		goto leave;
+	}
+	printf("multicast id=%d\n", mcid);
+
+	nl_socket_add_membership(nl_sock, mcid);
+
+	/* from iw event.c */
+	/* no sequence checking for multicast messages */
+	nl_cb_set(cb, NL_CB_SEQ_CHECK, NL_CB_CUSTOM, no_seq_check, NULL);
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, valid_handler, NULL);
+
+	while (1) { 
+		printf("calling nl_recvmsgs...\n");
+		err = nl_recvmsgs(nl_sock, cb);
+		if (err < 0) {
+			fprintf(stderr, "nl_recvmsgs err=%d \"%s\"\n", err, strerror(errno));
+			break;
+		}
+
+	}
+
+leave:
+	if (nl_sock) {
+		nl_socket_free(nl_sock);
+		nl_sock = NULL;
+	}
+	if (cb) {
+		nl_cb_put(cb);
+	}
+
+	return 0;
+}
+
 int main(void)
 {
-	struct nl_sock *nl_sock;
 	const char *ifname = "wlp1s0";
+
+	/* learning event listening */
+	return event_listener();
+
+	struct nl_sock *nl_sock;
 
 	unsigned int ifidx = if_nametoindex(ifname);
 	printf("ifidx=%u\n", ifidx);
@@ -933,6 +1115,9 @@ int main(void)
 	nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifidx);
 	nl_msg_dump(msg,stdout);
 
+	int arg = NL80211_CMD_GET_INTERFACE;
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, valid_handler, (void *)&arg );
+
 	retcode = nl_send_auto(nl_sock, msg);
 	printf("nl_send_auto retcode=%d\n", retcode);
 
@@ -961,6 +1146,9 @@ int main(void)
 	nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifidx);
 	nl_msg_dump(msg,stdout);
 
+	arg = NL80211_CMD_GET_STATION;
+//	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, valid_handler, (void *)&arg );
+
 	retcode = nl_send_auto(nl_sock, msg);
 	printf("retcode=%d\n", retcode);
 
@@ -978,6 +1166,7 @@ int main(void)
 	msg = nlmsg_alloc();
 	printf("msg=%p\n", (void *)msg);
 
+	arg = NL80211_CMD_GET_WIPHY;
 	p = genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ, nl80211_id, 0, 
 						NLM_F_DUMP, NL80211_CMD_GET_WIPHY, 0);
 	if (!p) {
@@ -1004,6 +1193,7 @@ int main(void)
 	/* SCAN -- THE BIG KAHOONA! */
 	msg = nlmsg_alloc();
 
+	arg = NL80211_CMD_GET_SCAN;
 	p = genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ, nl80211_id, 0, 
 						NLM_F_DUMP, NL80211_CMD_GET_SCAN, 0);
 	if (!p) {
