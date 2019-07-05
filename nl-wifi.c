@@ -701,7 +701,9 @@ int valid_handler(struct nl_msg *msg, void *arg)
 
 	for (int i=0 ; i<NL80211_ATTR_MAX ; i++ ) {
 		if (tb_msg[i]) {
-			printf("%s %d=%p type=%d len=%d\n", __func__, i, (void *)tb_msg[i], nla_type(tb_msg[i]), nla_len(tb_msg[i]));
+			const char *name = to_string_nl80211_attrs(i);
+			printf("%s i=%d %s at %p type=%d len=%d\n", __func__, 
+				i, name, (void *)tb_msg[i], nla_type(tb_msg[i]), nla_len(tb_msg[i]));
 			counter++;
 		}
 	}
@@ -1061,7 +1063,7 @@ int main(void)
 	const char *ifname = "wlp1s0";
 
 	/* learning event listening */
-	return event_listener();
+//	return event_listener();
 
 	struct nl_sock *nl_sock;
 
