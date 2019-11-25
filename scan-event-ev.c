@@ -18,6 +18,7 @@
 #include "iw-scan.h"
 #include "nlnames.h"
 #include "hdump.h"
+#include "xassert.h"
 
 struct netlink_event
 {
@@ -57,6 +58,8 @@ static int no_seq_check(struct nl_msg *msg, void *arg)
 
 static int valid_handler(struct nl_msg *msg, void *arg)
 {
+	int err;
+
 	printf("%s %p %p\n", __func__, (void *)msg, arg);
 
 //	hex_dump("msg", (const unsigned char *)msg, 128);
@@ -218,28 +221,48 @@ static int valid_handler(struct nl_msg *msg, void *arg)
 
 	if (tb_msg[NL80211_ATTR_SCAN_FREQUENCIES]) {
 		counter--;
-		printf("scan_frequencies\n");
-		struct nlattr *nst;
-		int rem_nst;
-		nla_for_each_nested(nst, tb_msg[NL80211_ATTR_SCAN_FREQUENCIES], rem_nst)
-			printf(" %d", nla_get_u32(nst));
-		printf(",");
+		err = decode_attr_scan_frequencies(tb_msg[NL80211_ATTR_SCAN_FREQUENCIES]);
+		if (err) {
+			goto fail;
+		}
+	}
+
+	struct bytebuf_array ssid_list;
+	err = bytebuf_array_init(&ssid_list, 64);
+	if (err) {
+		goto fail;
 	}
 
 	if (tb_msg[NL80211_ATTR_SCAN_SSIDS]) {
 		counter--;
-		printf("scan_ssids\n");
+		err = decode_attr_scan_ssids(tb_msg[NL80211_ATTR_SCAN_SSIDS], &ssid_list);
+		if (err) {
+			XASSERT(0, err);
+			goto fail;
+		}
+
+		for (size_t i=0 ; i<ssid_list.len ; i++) {
+			hex_dump("ssid", ssid_list.list[i].buf, ssid_list.list[i].len);
+		}
 	}
 
 	printf("%s counter=%zd unhandled attributes\n", __func__, counter);
 
 //	return NL_SKIP;
 	return NL_OK;
+fail:
+	// if it's been initialized, free it
+	if (ssid_list.max) {
+		bytebuf_array_free(&ssid_list);
+	}
+
+	return NL_SKIP;
 }
 
 
 int main(void)
 {
+	int err;
 	struct ev_loop* loop = EV_DEFAULT;
 
 	printf("using libev %d %d\n", ev_version_major(), ev_version_minor());
@@ -251,7 +274,8 @@ int main(void)
 	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, valid_handler, NULL);
 
 	struct nl_sock* nl_sock = nl_socket_alloc_cb(cb);
-	int retcode = genl_connect(nl_sock);
+	err = genl_connect(nl_sock);
+	printf("genl_connect err=%d\n", err);
 
 	int nl80211_id = genl_ctrl_resolve(nl_sock, NL80211_GENL_NAME);
 	printf("nl80211_id=%d\n", nl80211_id);

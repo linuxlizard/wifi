@@ -297,9 +297,15 @@ def main():
     enum_names = {e.name: e for e in enums}
 
     nl80211_attrs = enum_names["nl80211_attrs"]
-    mystery_numbers = (1,3,44,45,153)
-    for n in mystery_numbers:
-        print("num=%d enum=%s" % (n, nl80211_attrs[n]))
+    mystery_numbers = (1,3,44,45,46, 47,153)
+    mystery_numbers = (1,3,44,45,46, 47,153)
+#    for n in range(len(nl80211_attrs)):
+#    for n in mystery_numbers:
+    for n in range(1024):
+        try:
+            print("num=%d enum=%s" % (n, nl80211_attrs[n]))
+        except KeyError:
+            break
 
     commands = enum_names["nl80211_commands"]
     print(commands.name)
@@ -309,6 +315,7 @@ def main():
     print(bss.names)
 
     attrs = enum_names['nl80211_attrs']
+    print(attrs)
 
     with open("nlnames.c", "w") as outfile:
         print("#include <linux/nl80211.h>\n", file=outfile)

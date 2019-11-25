@@ -1,6 +1,14 @@
-int get_multicast_id(struct nl_sock *sock, const char *family, const char *group);
+#ifndef IW_SCAN_H
+#define IW_SCAN_H
 
-int print_sta_handler(struct nl_msg *msg, void *arg);
+#include "bytebuf.h"
 
-void decode_attr_bss( struct nlattr *attr );
+int get_multicast_id(struct nl_sock* sock, const char* family, const char* group);
 
+int print_sta_handler(struct nl_msg* msg, void *arg);
+
+void decode_attr_bss( struct nlattr* attr );
+int decode_attr_scan_frequencies( struct nlattr *attr);
+int decode_attr_scan_ssids( struct nlattr* attr, struct bytebuf_array* ssid_list  ) ;
+
+#endif
