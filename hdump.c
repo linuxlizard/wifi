@@ -7,8 +7,7 @@
 #include <string.h>
 #include <errno.h>
 
-#define MAX_BUFFER 128
-unsigned char buffer[MAX_BUFFER];
+#include "hdump.h"
 
 /**
  *  Very nice hex dump function.

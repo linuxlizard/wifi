@@ -1,5 +1,7 @@
 #include <linux/nl80211.h>
 
+#include "nlnames.h"
+
 
 const char * to_string_nl80211_commands(enum nl80211_commands val)
 {
@@ -139,6 +141,8 @@ const char * to_string_nl80211_commands(enum nl80211_commands val)
 		case NL80211_CMD_PEER_MEASUREMENT_RESULT : return "NL80211_CMD_PEER_MEASUREMENT_RESULT";
 		case NL80211_CMD_PEER_MEASUREMENT_COMPLETE : return "NL80211_CMD_PEER_MEASUREMENT_COMPLETE";
 		case NL80211_CMD_NOTIFY_RADAR : return "NL80211_CMD_NOTIFY_RADAR";
+		case NL80211_CMD_UPDATE_OWE_INFO : return "NL80211_CMD_UPDATE_OWE_INFO";
+		case NL80211_CMD_PROBE_MESH_LINK : return "NL80211_CMD_PROBE_MESH_LINK";
 		default: return "unknown";
 	}
 }
@@ -446,6 +450,10 @@ const char * to_string_nl80211_attrs(enum nl80211_attrs val)
 		case NL80211_ATTR_TIMEOUT : return "NL80211_ATTR_TIMEOUT";
 		case NL80211_ATTR_PEER_MEASUREMENTS : return "NL80211_ATTR_PEER_MEASUREMENTS";
 		case NL80211_ATTR_AIRTIME_WEIGHT : return "NL80211_ATTR_AIRTIME_WEIGHT";
+		case NL80211_ATTR_STA_TX_POWER_SETTING : return "NL80211_ATTR_STA_TX_POWER_SETTING";
+		case NL80211_ATTR_STA_TX_POWER : return "NL80211_ATTR_STA_TX_POWER";
+		case NL80211_ATTR_SAE_PASSWORD : return "NL80211_ATTR_SAE_PASSWORD";
+		case NL80211_ATTR_TWT_RESPONDER : return "NL80211_ATTR_TWT_RESPONDER";
 		default: return "unknown";
 	}
 }

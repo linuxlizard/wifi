@@ -37,7 +37,7 @@ enum plink_state {
 	BLOCKED
 };
 
-void peek(struct nl_msg *msg)
+static void peek(struct nl_msg *msg)
 {
 	struct nlmsghdr * nlh;
 	struct nlattr * attr;
@@ -85,7 +85,7 @@ void mac_addr_n2a(char *mac_addr, unsigned char *arg)
 /* 
  * iw-4.9 station.c 
  */
-void parse_bss_param(struct nlattr *bss_param_attr)
+void decode_bss_param(struct nlattr *bss_param_attr)
 {
 	struct nlattr *bss_param_info[NL80211_STA_BSS_PARAM_MAX + 1], *info;
 	static struct nla_policy bss_poilcy[NL80211_STA_BSS_PARAM_MAX + 1] = {
@@ -133,7 +133,7 @@ void parse_bss_param(struct nlattr *bss_param_attr)
 	}
 }
 
-void parse_tid_stats(struct nlattr *tid_stats_attr)
+void decode_tid_stats(struct nlattr *tid_stats_attr)
 {
 	struct nlattr *stats_info[NL80211_TID_STATS_MAX + 1], *tidattr, *info;
 	static struct nla_policy stats_policy[NL80211_TID_STATS_MAX + 1] = {
@@ -181,13 +181,15 @@ static void print_power_mode(struct nlattr *a)
 	case NL80211_MESH_POWER_DEEP_SLEEP:
 		printf("DEEP SLEEP");
 		break;
+	case NL80211_MESH_POWER_UNKNOWN:
+	case __NL80211_MESH_POWER_AFTER_LAST:
 	default:
 		printf("UNKNOWN");
 		break;
 	}
 }
 
-void parse_bitrate(struct nlattr *bitrate_attr, char *buf, int buflen)
+void decode_bitrate(struct nlattr *bitrate_attr, char *buf, int buflen)
 {
 	int rate = 0;
 	char *pos = buf;
@@ -385,14 +387,14 @@ int print_sta_handler(struct nl_msg *msg, void *arg)
 	if (sinfo[NL80211_STA_INFO_TX_BITRATE]) {
 		char buf[100];
 
-		parse_bitrate(sinfo[NL80211_STA_INFO_TX_BITRATE], buf, sizeof(buf));
+		decode_bitrate(sinfo[NL80211_STA_INFO_TX_BITRATE], buf, sizeof(buf));
 		printf("\n\ttx bitrate:\t%s", buf);
 	}
 
 	if (sinfo[NL80211_STA_INFO_RX_BITRATE]) {
 		char buf[100];
 
-		parse_bitrate(sinfo[NL80211_STA_INFO_RX_BITRATE], buf, sizeof(buf));
+		decode_bitrate(sinfo[NL80211_STA_INFO_RX_BITRATE], buf, sizeof(buf));
 		printf("\n\trx bitrate:\t%s", buf);
 	}
 
@@ -522,9 +524,9 @@ int print_sta_handler(struct nl_msg *msg, void *arg)
 
 	if (sinfo[NL80211_STA_INFO_TID_STATS] && arg != NULL &&
 	    !strcmp((char *)arg, "-v"))
-		parse_tid_stats(sinfo[NL80211_STA_INFO_TID_STATS]);
+		decode_tid_stats(sinfo[NL80211_STA_INFO_TID_STATS]);
 	if (sinfo[NL80211_STA_INFO_BSS_PARAM])
-		parse_bss_param(sinfo[NL80211_STA_INFO_BSS_PARAM]);
+		decode_bss_param(sinfo[NL80211_STA_INFO_BSS_PARAM]);
 	if (sinfo[NL80211_STA_INFO_CONNECTED_TIME])
 		printf("\n\tconnected time:\t%u seconds",
 			nla_get_u32(sinfo[NL80211_STA_INFO_CONNECTED_TIME]));

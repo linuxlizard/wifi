@@ -267,7 +267,6 @@ def print_to_string(enum, outfile):
         "NL80211_CMD_ACTION_TX_STATUS",
     )
          
-
     # print a C function to conver the enum value to a string
     fn = """
 const char * to_string_{0}(enum {0} val)
@@ -308,17 +307,18 @@ def main():
             break
 
     commands = enum_names["nl80211_commands"]
-    print(commands.name)
-    print(commands.names)
+#    print(commands.name)
+#    print(commands.names)
 
     bss = enum_names['nl80211_bss']
-    print(bss.names)
+#    print(bss.names)
 
     attrs = enum_names['nl80211_attrs']
-    print(attrs)
+#    print(attrs)
 
     with open("nlnames.c", "w") as outfile:
         print("#include <linux/nl80211.h>\n", file=outfile)
+        print("#include \"nlnames.h\"\n", file=outfile)
         print_to_string(commands, outfile)
         print_to_string(bss, outfile)
         print_to_string(attrs, outfile)

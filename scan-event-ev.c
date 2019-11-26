@@ -15,10 +15,10 @@
 #include <netlink/genl/ctrl.h>
 #include <ev.h>
 
+#include "core.h"
 #include "iw-scan.h"
 #include "nlnames.h"
 #include "hdump.h"
-#include "xassert.h"
 
 struct netlink_event
 {
@@ -33,9 +33,9 @@ static void on_netlink_cb(EV_P_ ev_io* w, int revents)
 	struct netlink_event* n = (struct netlink_event *)w;
 	struct nl_sock* nl_sock = n->nl_sock;
 
-	printf("%s\n", __func__);
+	DBG("%s\n", __func__);
 	int nl_err = nl_recvmsgs_default(nl_sock);
-	printf("%s recvmsgs=%d\n", __func__, nl_err);
+	DBG("%s recvmsgs=%d\n", __func__, nl_err);
 }
 
 
@@ -45,7 +45,7 @@ static void on_netlink_cb(EV_P_ ev_io* w, int revents)
 //	(void)val;
 //	(void)arg;
 //
-//	printf("%s\n", __func__);
+//	DBG("%s\n", __func__);
 //}
 
 static int no_seq_check(struct nl_msg *msg, void *arg)
@@ -60,7 +60,7 @@ static int valid_handler(struct nl_msg *msg, void *arg)
 {
 	int err;
 
-	printf("%s %p %p\n", __func__, (void *)msg, arg);
+	DBG("%s %p %p\n", __func__, (void *)msg, arg);
 
 //	hex_dump("msg", (const unsigned char *)msg, 128);
 
@@ -69,7 +69,7 @@ static int valid_handler(struct nl_msg *msg, void *arg)
 	struct nlmsghdr *hdr = nlmsg_hdr(msg);
 
 	int datalen = nlmsg_datalen(hdr);
-	printf("datalen=%d attrlen=%d\n", datalen, nlmsg_attrlen(hdr,0));
+	DBG("datalen=%d attrlen=%d\n", datalen, nlmsg_attrlen(hdr,0));
 
 	struct nlattr *tb_msg[NL80211_ATTR_MAX + 1];
 
@@ -77,7 +77,7 @@ static int valid_handler(struct nl_msg *msg, void *arg)
 	nla_parse(tb_msg, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
 		  genlmsg_attrlen(gnlh, 0), NULL);
 
-	printf("%s cmd=%d\n", __func__, (int)(gnlh->cmd));
+	DBG("%s cmd=%d %s\n", __func__, (int)(gnlh->cmd), to_string_nl80211_commands(gnlh->cmd));
 
 	// report attrs not handled in my crappy code below
 	ssize_t counter=0;
@@ -85,7 +85,7 @@ static int valid_handler(struct nl_msg *msg, void *arg)
 	for (int i=0 ; i<NL80211_ATTR_MAX ; i++ ) {
 		if (tb_msg[i]) {
 			const char *name = to_string_nl80211_attrs(i);
-			printf("%s i=%d %s at %p type=%d len=%d\n", __func__, 
+			DBG("%s i=%d %s at %p type=%d len=%d\n", __func__, 
 				i, name, (void *)tb_msg[i], nla_type(tb_msg[i]), nla_len(tb_msg[i]));
 			counter++;
 		}
@@ -94,97 +94,97 @@ static int valid_handler(struct nl_msg *msg, void *arg)
 	if (tb_msg[NL80211_ATTR_WIPHY]) {
 		counter--;
 		uint32_t phy_id = nla_get_u32(tb_msg[NL80211_ATTR_WIPHY]);
-		printf("phy_id=%u\n", phy_id);
+		DBG("phy_id=%u\n", phy_id);
 	}
 
 	if (tb_msg[NL80211_ATTR_WIPHY_NAME]) {
 		counter--;
 		const char *p = nla_get_string(tb_msg[NL80211_ATTR_WIPHY_NAME]);
-		printf("phy_name=%s\n", p);
+		DBG("phy_name=%s\n", p);
 	}
 
 	if (tb_msg[NL80211_ATTR_IFINDEX]) {
 		counter--;
-		printf("ifindex=%d\n", nla_get_u32(tb_msg[NL80211_ATTR_IFINDEX]));
+		DBG("ifindex=%d\n", nla_get_u32(tb_msg[NL80211_ATTR_IFINDEX]));
 	}
 
 	if (tb_msg[NL80211_ATTR_IFNAME]) {
 		counter--;
-		printf("ifname=%s\n", nla_get_string(tb_msg[NL80211_ATTR_IFNAME]));
+		DBG("ifname=%s\n", nla_get_string(tb_msg[NL80211_ATTR_IFNAME]));
 	}
 
 	if (tb_msg[NL80211_ATTR_IFTYPE]) {
 		counter--;
 		struct nlattr *attr = tb_msg[NL80211_ATTR_IFTYPE];
 		enum nl80211_iftype * iftype = nla_data(attr);
-		printf("iftype=%d\n", *iftype);
+		DBG("iftype=%d\n", *iftype);
 	}
 
 	if (tb_msg[NL80211_ATTR_MAC]) {
 		counter--;
 		struct nlattr *attr = tb_msg[NL80211_ATTR_MAC];
-		printf("attr type=%d len=%d ok=%d\n", nla_type(attr), nla_len(attr), nla_ok(attr,0));
+		DBG("attr type=%d len=%d ok=%d\n", nla_type(attr), nla_len(attr), nla_ok(attr,0));
 		uint8_t *mac = nla_data(attr);
 		hex_dump("mac", mac, nla_len(attr));
 	}
 
 	if (tb_msg[NL80211_ATTR_KEY_DATA]) {
 		counter--;
-		printf("keydata=?\n");
+		DBG("keydata=?\n");
 	}
 
 	if (tb_msg[NL80211_ATTR_GENERATION]) {
 		counter--;
 		uint32_t attr_gen = nla_get_u32(tb_msg[NL80211_ATTR_GENERATION]);
-		printf("attr generation=%#" PRIx32 "\n", attr_gen);
+		DBG("attr generation=%#" PRIx32 "\n", attr_gen);
 	}
 
 	if (tb_msg[NL80211_ATTR_WIPHY_TX_POWER_LEVEL]) {
 		counter--;
 		uint32_t tx_power = nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_TX_POWER_LEVEL]);
-		printf("tx_power_level=%" PRIu32 "\n", tx_power);
-		// printf taken from iw-4.14 interface.c print_iface_handler()
-		printf("tx_power %d.%.2d dBm\n", tx_power / 100, tx_power % 100);
+		DBG("tx_power_level=%" PRIu32 "\n", tx_power);
+		// DBG taken from iw-4.14 interface.c print_iface_handler()
+		DBG("tx_power %d.%.2d dBm\n", tx_power / 100, tx_power % 100);
 	}
 
 	if (tb_msg[NL80211_ATTR_WDEV]) {
 		counter--;
 		uint64_t wdev = nla_get_u64(tb_msg[NL80211_ATTR_WDEV]);
-		printf("wdev=%#" PRIx64 "\n", wdev);
+		DBG("wdev=%#" PRIx64 "\n", wdev);
 	}
 
 	if (tb_msg[NL80211_ATTR_CHANNEL_WIDTH]) {
 		counter--;
 		enum nl80211_chan_width w = nla_get_u32(tb_msg[NL80211_ATTR_CHANNEL_WIDTH]);
-		printf("channel_width=%" PRIu32 "\n", w);
+		DBG("channel_width=%" PRIu32 "\n", w);
 	}
 
 	if (tb_msg[NL80211_ATTR_WIPHY_CHANNEL_TYPE]) {
 		counter--;
-		printf("channel_type=?\n");
+		DBG("channel_type=?\n");
 	}
 
 	if (tb_msg[NL80211_ATTR_WIPHY_FREQ]) {
 		counter--;
 		uint32_t wiphy_freq = nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_FREQ]);
-		printf("wiphy_freq=%" PRIu32 "\n", wiphy_freq);
+		DBG("wiphy_freq=%" PRIu32 "\n", wiphy_freq);
 	}
 
 	if (tb_msg[NL80211_ATTR_CENTER_FREQ1]) {
 		counter--;
 		uint32_t center_freq1 = nla_get_u32(tb_msg[NL80211_ATTR_CENTER_FREQ1]);
-		printf("center_freq1=%" PRIu32 "\n", center_freq1);
+		DBG("center_freq1=%" PRIu32 "\n", center_freq1);
 	}
 
 	if (tb_msg[NL80211_ATTR_CENTER_FREQ2]) {
 		counter--;
 		uint32_t center_freq2 = nla_get_u32(tb_msg[NL80211_ATTR_CENTER_FREQ2]);
-		printf("center_freq2=%" PRIu32 "\n", center_freq2);
+		DBG("center_freq2=%" PRIu32 "\n", center_freq2);
 	}
 
 	if (tb_msg[NL80211_ATTR_WIPHY_TXQ_PARAMS]) {
 		counter--;
-		printf("txq_params=?\n");
+		DBG("txq_params=?\n");
 	}
 
 	if (tb_msg[NL80211_ATTR_STA_INFO]) {
@@ -193,7 +193,7 @@ static int valid_handler(struct nl_msg *msg, void *arg)
 		 *  given for %NL80211_CMD_GET_STATION, nested attribute containing
 		 *  info as possible, see &enum nl80211_sta_info.
 		 */
-		printf("sta info=?\n");
+		DBG("sta info=?\n");
 		print_sta_handler(msg, arg);
 	}
 
@@ -210,12 +210,12 @@ static int valid_handler(struct nl_msg *msg, void *arg)
 
 		enum nl80211_band_attr band = nla_get_u32(tb_msg[NL80211_ATTR_BANDS]);
 		// results are kinda boring ... 
-		printf("attr_bands=%#" PRIx32 "\n", band);
+		DBG("attr_bands=%#" PRIx32 "\n", band);
 	}
 
 	if (tb_msg[NL80211_ATTR_BSS]) {
 		counter--;
-		printf("bss=?\n");
+		DBG("bss=?\n");
 		decode_attr_bss(tb_msg[NL80211_ATTR_BSS]);
 	}
 
@@ -246,7 +246,7 @@ static int valid_handler(struct nl_msg *msg, void *arg)
 		}
 	}
 
-	printf("%s counter=%zd unhandled attributes\n", __func__, counter);
+	DBG("%s counter=%zd unhandled attributes\n", __func__, counter);
 
 //	return NL_SKIP;
 	return NL_OK;
@@ -265,7 +265,7 @@ int main(void)
 	int err;
 	struct ev_loop* loop = EV_DEFAULT;
 
-	printf("using libev %d %d\n", ev_version_major(), ev_version_minor());
+	DBG("using libev %d %d\n", ev_version_major(), ev_version_minor());
 
 	/* from iw event.c */
 	/* no sequence checking for multicast messages */
@@ -275,12 +275,12 @@ int main(void)
 
 	struct nl_sock* nl_sock = nl_socket_alloc_cb(cb);
 	err = genl_connect(nl_sock);
-	printf("genl_connect err=%d\n", err);
+	DBG("genl_connect err=%d\n", err);
 
 	int nl80211_id = genl_ctrl_resolve(nl_sock, NL80211_GENL_NAME);
-	printf("nl80211_id=%d\n", nl80211_id);
+	DBG("nl80211_id=%d\n", nl80211_id);
 	int mcid = get_multicast_id(nl_sock, "nl80211", "scan");
-	printf("mcid=%d\n", mcid);
+	DBG("mcid=%d\n", mcid);
 	nl_socket_add_membership(nl_sock, mcid);
 
 	int nl_sock_fd = nl_socket_get_fd(nl_sock);

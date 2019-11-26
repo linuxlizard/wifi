@@ -3,13 +3,14 @@
 #include <string.h>
 #include <errno.h>
 
+#include "core.h"
 #include "xassert.h"
 #include "log.h"
 #include "bytebuf.h"
 
 int bytebuf_init(struct bytebuf* bb, uint8_t *ptr, size_t len)
 {
-	printf("%s %p %zu\n", __func__, (void*)ptr, len);
+	DBG("%s %p %zu\n", __func__, (void*)ptr, len);
 	if (!bb || !ptr) {
 		return -EINVAL;
 	}
@@ -36,7 +37,7 @@ void bytebuf_free(struct bytebuf* bb)
 	if (bb->buf) {
 		/* poison the buffer */
 		memset(bb->buf, 0xee, bb->len);
-		free(bb->buf);
+		PTR_FREE(bb->buf);
 	}
 	memset(bb, 0, sizeof(struct bytebuf));
 }
@@ -67,12 +68,12 @@ void bytebuf_array_free(struct bytebuf_array* bba)
 	XASSERT( bba->cookie == BYTEBUF_ARRAY_COOKIE, bba->cookie);
 
 	for (size_t i=0 ; i<bba->max; i++) {
-		if (bba->list[i].buf) {
+		if (bba->list[i].cookie ) {
 			bytebuf_free(&bba->list[i]);
 		}
 	}
 
-	free(bba->list);
+	PTR_FREE(bba->list);
 	memset(bba, 0, sizeof(struct bytebuf_array));
 }
 
