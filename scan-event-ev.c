@@ -19,6 +19,7 @@
 #include "iw-scan.h"
 #include "nlnames.h"
 #include "hdump.h"
+#include "ie.h"
 
 struct netlink_event
 {
@@ -217,6 +218,17 @@ static int valid_handler(struct nl_msg *msg, void *arg)
 		counter--;
 		DBG("bss=?\n");
 		decode_attr_bss(tb_msg[NL80211_ATTR_BSS]);
+	}
+
+	struct IE_List ie_list;
+	err = ie_list_init(&ie_list);
+
+	if (tb_msg[NL80211_ATTR_IE]) {
+		counter--;
+		struct nlattr* ie = tb_msg[NL80211_ATTR_IE];
+		DBG("ATTR_IE len=%"PRIu16"\n", nla_len(ie));
+		hex_dump("attr_ie", nla_data(ie), nla_len(ie));
+		err = decode_ie_buf(nla_data(ie), nla_len(ie), &ie_list);
 	}
 
 	if (tb_msg[NL80211_ATTR_SCAN_FREQUENCIES]) {

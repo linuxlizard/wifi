@@ -3,11 +3,14 @@
 # http://software.schmorp.de/pkg/libev.html
 # https://github.com/P-p-H-d/mlib
 #
-PKGS=libnl-3.0 libnl-genl-3.0 libevent_core libevent libevent_extra
+PKGS=libnl-3.0 libnl-genl-3.0
+#PKGS=libnl-3.0 libnl-genl-3.0 libevent_core libevent libevent_extra
 CFLAGS:=-g -Wall -Wpedantic -Wextra $(shell pkg-config --cflags $(PKGS))
 # shamelessly copied extra warnings from m*lib https://github.com/P-p-H-d/mlib
 CFLAGS+=-Wshadow -Wpointer-arith -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes -Wswitch-default -Wswitch-enum -Wcast-align -Wpointer-arith -Wbad-function-cast -Wstrict-overflow=5 -Wstrict-prototypes -Winline -Wundef -Wnested-externs -Wcast-qual -Wshadow -Wunreachable-code -Wlogical-op -Wstrict-aliasing=2 -Wredundant-decls -Wold-style-definition -Wno-unused-function
 LDFLAGS:=-g $(shell pkg-config --libs $(PKGS))
+
+CORE_H:=xassert.h log.h core.h
 
 all:scan-event-ev
 
@@ -17,18 +20,19 @@ scan-event: scan-event.o hdump.o iw-scan.o nlnames.o log.o
 scan-event.o: scan-event.c
 	$(CC) $(CFLAGS) -c scan-event.c -o scan-event.o 
 
-scan-event-ev: scan-event-ev.o hdump.o iw-scan.o nlnames.o xassert.o bytebuf.o log.o
+scan-event-ev: scan-event-ev.o hdump.o iw-scan.o nlnames.o xassert.o bytebuf.o log.o ie.o
 	$(CC) $(LDFLAGS) -lev -o $@ $^
 
-scan-event-ev.o: scan-event-ev.c iw-scan.h xassert.h bytebuf.h log.h
+scan-event-ev.o: scan-event-ev.c iw-scan.h bytebuf.h $(CORE_H)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-hdump.o:hdump.c hdump.h
-log.o:log.c log.h
+hdump.o:hdump.c hdump.h $(CORE_H)
+log.o:log.c log.h $(CORE_H)
 
-bytebuf.o:bytebuf.c bytebuf.h xassert.h log.h
-xassert.o:xassert.c xassert.h
-iw-scan.o:iw-scan.c iw-scan.h bytebuf.h xassert.h log.h
+bytebuf.o:bytebuf.c bytebuf.h $(CORE_H)
+ie.o:ie.c ie.h $(CORE_H)
+xassert.o:xassert.c xassert.h $(CORE_H)
+iw-scan.o:iw-scan.c iw-scan.h bytebuf.h $(CORE_H)
 
 # nl80211.h uses duplicates for certain enum values so need to turn off the
 # strict switch+enum checking
@@ -38,11 +42,15 @@ nlnames.o:nlnames.c nlnames.h
 test_xassert:test_xassert.o xassert.o
 test_xassert.o:test_xassert.c xassert.h
 
-test_bytebuf:test_bytebuf.o bytebuf.o xassert.o hdump.o
+test_ie:test_ie.o ie.o log.o xassert.o
+test_ie.o:test_ie.c ie.h $(CORE_H)
+
+test_bytebuf:test_bytebuf.o bytebuf.o xassert.o hdump.o log.o
 test_bytebuf.o:test_bytebuf.c bytebuf.h xassert.h log.h
 
-test: test_bytebuf
+test: test_bytebuf test_ie
 	valgrind --leak-check=yes ./test_bytebuf
+	valgrind --leak-check=yes ./test_ie
 
 clean:
-	$(RM) *.o scan-event scan-event-ev test_bytebuf test_xassert
+	$(RM) *.o scan-event scan-event-ev test_bytebuf test_xassert test_ie
