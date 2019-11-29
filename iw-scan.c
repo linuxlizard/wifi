@@ -18,6 +18,7 @@
 #include <netlink/attr.h>
 #include <linux/nl80211.h>
 
+#include "core.h"
 #include "hdump.h"
 #include "nlnames.h"
 #include "bytebuf.h"
@@ -62,23 +63,6 @@ static void peek(struct nl_msg *msg)
 	nlmsg_for_each_attr(attr, nlh, 0, rem) {
 		printf("peek type=%d len=%d\n", nla_type(attr), nla_len(attr));
 		i++;
-	}
-}
-
-/* iw-4.9 util.c */
-void mac_addr_n2a(char *mac_addr, unsigned char *arg)
-{
-	int i, l;
-
-	l = 0;
-	for (i = 0; i < ETH_ALEN ; i++) {
-		if (i == 0) {
-			sprintf(mac_addr+l, "%02x", arg[i]);
-			l += 2;
-		} else {
-			sprintf(mac_addr+l, ":%02x", arg[i]);
-			l += 3;
-		}
 	}
 }
 

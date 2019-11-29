@@ -3,6 +3,7 @@
 # http://software.schmorp.de/pkg/libev.html
 # https://github.com/P-p-H-d/mlib
 #
+CC=gcc
 PKGS=libnl-3.0 libnl-genl-3.0 icu-i18n
 #PKGS=libnl-3.0 libnl-genl-3.0 libevent_core libevent libevent_extra
 CFLAGS:=-g -Wall -Wpedantic -Wextra $(shell pkg-config --cflags $(PKGS))
@@ -11,7 +12,7 @@ CFLAGS+=-Wshadow -Wpointer-arith -Wcast-qual -Wstrict-prototypes -Wmissing-proto
 LDFLAGS:=-g $(shell pkg-config --libs $(PKGS))
 
 CORE_H:=xassert.h log.h core.h hdump.h
-CORE_O:=xassert.o log.o hdump.o
+CORE_O:=xassert.o log.o hdump.o util.o
 
 all:scan-event-ev scan-dump
 
@@ -27,21 +28,24 @@ scan-event-ev: scan-event-ev.o $(CORE_O) iw-scan.o nlnames.o bytebuf.o ie.o
 scan-event-ev.o: scan-event-ev.c iw-scan.h bytebuf.h $(CORE_H)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-scan-dump: scan-dump.o iw.o $(CORE_O) nlnames.o ie.o
+scan-dump: scan-dump.o iw.o $(CORE_O) nlnames.o ie.o bss.o
 	$(CC) $(LDFLAGS) -lev -o $@ $^
 
 scan-dump.o: scan-dump.c iw.h $(CORE_H)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-iw.o:iw.c iw.h $(CORE_H)
 
 hdump.o:hdump.c hdump.h $(CORE_H)
 log.o:log.c log.h $(CORE_H)
-
 bytebuf.o:bytebuf.c bytebuf.h $(CORE_H)
 ie.o:ie.c ie.h $(CORE_H)
+iw.o:iw.c iw.h $(CORE_H)
+bss.o:bss.c bss.h $(CORE_H)
 xassert.o:xassert.c xassert.h $(CORE_H)
 iw-scan.o:iw-scan.c iw-scan.h bytebuf.h $(CORE_H)
+list_debug.o:list_debug.c list.h bug.h $(CORE_H)
+bug.o:bug.c bug.h $(CORE_H)
+util.o:util.c $(CORE_H)
 
 # nl80211.h uses duplicates for certain enum values so need to turn off the
 # strict switch+enum checking
@@ -56,6 +60,9 @@ test_ie.o:test_ie.c ie.h $(CORE_H)
 
 test_bytebuf:test_bytebuf.o bytebuf.o xassert.o hdump.o log.o
 test_bytebuf.o:test_bytebuf.c bytebuf.h xassert.h log.h
+
+test_bss:test_bss.o bss.o ie.o list_debug.o bug.o $(CORE_O)
+test_bss.o:test_bss.c $(CORE_H)
 
 test: test_bytebuf test_ie
 	valgrind --leak-check=yes ./test_bytebuf

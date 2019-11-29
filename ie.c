@@ -113,11 +113,6 @@ struct IE* ie_new(uint8_t id, uint8_t len, const uint8_t* buf)
 {
 	DBG("%s id=%d len=%d\n", __func__, id, len);
 
-	if (id == 0) {
-		ERR("%s invalid IE id=%d of len=%d\n", __func__, id, len);
-		return NULL;
-	}
-
 	struct IE* ie = (struct IE*)calloc(1, sizeof(struct IE));
 	if (!ie) {
 		return NULL;
@@ -140,6 +135,9 @@ struct IE* ie_new(uint8_t id, uint8_t len, const uint8_t* buf)
 			ie_delete(&ie);
 			return NULL;
 		}
+	}
+	else {
+		WARN("%s unparsed IE=%d\n", __func__, id);
 	}
 
 	return ie;
@@ -188,13 +186,11 @@ int decode_ie_buf( const uint8_t* ptr, size_t len, struct IE_List* ie_list)
 
 		struct IE* ie = ie_new(id, ielen, ptr);
 		if (!ie) {
-			ie_list_release(ie_list);
 			return -ENOMEM;
 		}
 		err = ie_list_move_back(ie_list, &ie);
 		if (err) {
 			ie_delete(&ie);
-			ie_list_release(ie_list);
 			return err;
 		}
 		// ie will be NULL at this point
@@ -221,7 +217,9 @@ int ie_list_init(struct IE_List* list)
 
 void ie_list_release(struct IE_List* list)
 {
+	DBG("%s\n", __func__);
 	XASSERT(list->cookie == IE_LIST_COOKIE, list->cookie);
+	XASSERT(list->max, 0);
 
 	for (size_t i=0 ; i<list->count ; i++) {
 		XASSERT(list->ieptrlist[i] != NULL, 0);
@@ -230,6 +228,7 @@ void ie_list_release(struct IE_List* list)
 
 	memset(list->ieptrlist, POISON, sizeof(struct IE*)*list->max);
 	PTR_FREE(list->ieptrlist);
+	memset(list, POISON, sizeof(struct IE_List));
 }
 
 int ie_list_move_back(struct IE_List* list, struct IE** pie)
@@ -252,5 +251,14 @@ int ie_list_move_back(struct IE_List* list, struct IE** pie)
 	PTR_ASSIGN(list->ieptrlist[list->count++], *pie);
 
 	return 0;
+}
+
+void ie_list_peek(const char *label, struct IE_List* list)
+{
+	for (size_t i=0 ; i<list->count ; i++) {
+		struct IE* ie = list->ieptrlist[i];
+		DBG("%s IE id=%d len=%zu\n", label, ie->id, ie->len);
+	}
+
 }
 

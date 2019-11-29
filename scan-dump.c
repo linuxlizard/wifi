@@ -4,6 +4,7 @@
 
 #include "core.h"
 #include "iw.h"
+#include "bss.h"
 
 static int valid_handler(struct nl_msg *msg, void *arg)
 {
@@ -22,12 +23,13 @@ static int valid_handler(struct nl_msg *msg, void *arg)
 
 	int err=0;
 
-	if (tb_msg[NL80211_ATTR_BSS]) {
-		err = parse_nla_bss(tb_msg[NL80211_ATTR_BSS]);
-		if (err != 0) {
-			goto fail;
-		}
+	if (!tb_msg[NL80211_ATTR_BSS]) {
+		return NL_SKIP;
+	}
 
+	err = parse_nla_bss(tb_msg[NL80211_ATTR_BSS]);
+	if (err != 0) {
+		goto fail;
 	}
 
 	return NL_OK;
@@ -64,6 +66,7 @@ int main(int argc, char* argv[])
 
 	while (err > 0) {
 		err = nl_recvmsgs(nl_sock, cb);
+		INFO("nl_recvmsgs err=%d\n", err);
 	}
 
 	nl_cb_put(cb);

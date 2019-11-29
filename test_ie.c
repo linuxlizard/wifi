@@ -100,6 +100,7 @@ int main(void)
 	ie_list_release(&ie_list);
 
 	test_ie_ssid();
+
 	return EXIT_SUCCESS;
 }
 

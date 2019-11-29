@@ -42,7 +42,7 @@
 #include <unicode/utf8.h>
 
 typedef enum {
-	IE_SSID = 1,
+	IE_SSID = 0,
 	IE_MESH_ID = 114,
 	IE_EXTENDED_CAPABILITIES = 127,
 	IE_VENDOR = 221,
@@ -117,9 +117,13 @@ struct IE_List
 struct IE* ie_new(uint8_t id, uint8_t len, const uint8_t* buf);
 void ie_delete(struct IE** pie);
 
+#define IE_LIST_BLANK\
+	{ .cookie = 0, .max = 0, .count = 0 }
+
 int ie_list_init(struct IE_List* list);
 void ie_list_release(struct IE_List* list);
 int ie_list_move_back(struct IE_List* list, struct IE** pie);
+void ie_list_peek(const char *label, struct IE_List* list);
 
 int decode_ie_buf( const uint8_t* buf, size_t len, struct IE_List* ielist);
 
