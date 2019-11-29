@@ -28,6 +28,16 @@ static void ie_validate(struct IE* ie, uint8_t id, size_t len)
 	XASSERT( (ie->specific==NULL) == (ie->free==NULL), id);
 }
 
+static void test_ie_ssid(void)
+{
+	struct IE* ie;
+
+	ie = ie_new(IE_SSID, 13, (const uint8_t*)"hello, world");
+	XASSERT(ie, 0);
+
+	ie_delete(&ie);
+}
+
 int main(void)
 {
 	struct IE_List ie_list;
@@ -79,7 +89,7 @@ int main(void)
 		XASSERT(ie, 0);
 		XASSERT(ie->buf, 0);
 		ie_validate(ie, IE_VENDOR, vendor_ie[11]);
-		err = memcmp(ie->buf, (void *)&vendor_ie[12], ie->len);
+		err = memcmp(ie->buf, (const void *)&vendor_ie[12], ie->len);
 		XASSERT(err==0, err);
 
 		err = ie_list_move_back(&ie_list, &ie);
@@ -88,6 +98,8 @@ int main(void)
 	}
 
 	ie_list_release(&ie_list);
+
+	test_ie_ssid();
 	return EXIT_SUCCESS;
 }
 

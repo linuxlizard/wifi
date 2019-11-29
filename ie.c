@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include <unicode/utypes.h>
+
 #include "core.h"
 #include "ie.h"
 
@@ -12,6 +14,55 @@ const uint8_t wfa_oui[3] = { 0x50, 0x6f, 0x9a };
 #define POISON 0xee
 
 #define IE_LIST_DEFAULT_MAX 32
+
+
+#define INIT_SPEC(ie, spec_ie, free_fn)\
+	spec_ie->cookie = IE_SPECIFIC_COOKIE;\
+	ie->specific = spec_ie;\
+	spec_ie->base = ie;\
+	ie->free = free_fn
+
+
+static void ie_ssid_free(struct IE* ie)
+{
+	struct IE_SSID* ie_ssid = (struct IE_SSID*)ie->specific;
+
+	XASSERT(ie_ssid->cookie == IE_SPECIFIC_COOKIE, ie_ssid->cookie);
+
+	if (ie_ssid->ssid) {
+		utext_close(ie_ssid->ssid);
+	}
+	PTR_FREE(ie->specific);
+}
+
+static int ie_ssid_new(struct IE* ie)
+{
+	struct IE_SSID* ie_ssid;
+
+	ie_ssid = calloc(1,sizeof(struct IE_SSID));
+	if (!ie_ssid) {
+		return -ENOMEM;
+	}
+
+	INIT_SPEC(ie, ie_ssid, ie_ssid_free);
+
+	UErrorCode status = U_ZERO_ERROR;
+	ie_ssid->ssid = utext_openUTF8(ie_ssid->ssid, (const char*)ie->buf, ie->len, &status);
+
+	return 0;
+}
+
+static void ie_extended_capa_free(struct IE* ie)
+{
+	(void)ie;
+}
+
+static int ie_extended_capa_new(struct IE* ie)
+{
+	(void)ie;
+	return 0;
+}
+
 
 static void ie_vendor_free(struct IE* ie)
 {
@@ -49,6 +100,15 @@ static int ie_vendor_new(struct IE* ie)
 	return 0;
 }
 
+
+typedef int (*specific_ie_new)(struct IE *);
+
+static const specific_ie_new constructors[256] = {
+	[IE_SSID] = ie_ssid_new,
+	[IE_EXTENDED_CAPABILITIES] = ie_extended_capa_new,
+	[IE_VENDOR] = ie_vendor_new,
+};
+
 struct IE* ie_new(uint8_t id, uint8_t len, const uint8_t* buf)
 {
 	DBG("%s id=%d len=%d\n", __func__, id, len);
@@ -74,8 +134,8 @@ struct IE* ie_new(uint8_t id, uint8_t len, const uint8_t* buf)
 	}
 	memcpy(ie->buf, buf, ie->len);
 
-	if (id==IE_VENDOR) {
-		int err = ie_vendor_new(ie);
+	if (constructors[id]) {
+		int err = constructors[id](ie);
 		if (err) {
 			ie_delete(&ie);
 			return NULL;

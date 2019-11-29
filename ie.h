@@ -36,9 +36,18 @@
 // retired.
 // </quote>
 
-#define IE_MESH_ID 114
-#define IE_EXTENDED_CAPABILITIES 127
-#define IE_VENDOR 221
+// https://unicode-org.github.io/icu-docs/apidoc/released/icu4c/
+#include <unicode/utypes.h>
+#include <unicode/utext.h>
+#include <unicode/utf8.h>
+
+typedef enum {
+	IE_SSID = 1,
+	IE_MESH_ID = 114,
+	IE_EXTENDED_CAPABILITIES = 127,
+	IE_VENDOR = 221,
+		
+} IE_ID;
 
 extern const uint8_t ms_oui[3];
 extern const uint8_t ieee80211_oui[3];
@@ -52,7 +61,7 @@ extern const uint8_t wfa_oui[3];
 struct IE 
 {
 	uint32_t cookie;
-	uint8_t id;
+	IE_ID id;
 	size_t len;
 	// raw bytes of the IE; does not include id+len
 	uint8_t* buf;
@@ -72,6 +81,16 @@ struct IE
 #define IE_SPECIFIC_FIELDS\
 	uint32_t cookie;\
 	struct IE* base;
+
+// standard says 32 octets but Unicode seriously muddies the water
+#define SSID_MAX_LEN 32
+
+struct IE_SSID
+{
+	IE_SPECIFIC_FIELDS
+
+	UText* ssid;
+};
 
 struct IE_Extended_Capabilities
 {

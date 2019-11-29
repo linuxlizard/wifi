@@ -1,0 +1,12 @@
+
+A full-featured and high-performance event loop
+http://software.schmorp.de/pkg/libev.html
+
+ICU - International Components for UnicodeICU - International Components for Unicode
+http://site.icu-project.org/
+https://github.com/unicode-org/icu/releases/tag/release-65-1
+(Fedora) dnf install libicu-devel
+
+maybe (haven't decided yet)
+Library of generic and type safe containers in pure C language
+https://github.com/P-p-H-d/mlib

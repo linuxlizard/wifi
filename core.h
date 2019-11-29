@@ -1,6 +1,8 @@
 #ifndef CORE_H
 #define CORE_H
 
+#include <errno.h>
+
 #include "xassert.h"
 #include "log.h"
 
