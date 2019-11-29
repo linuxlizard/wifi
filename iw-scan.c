@@ -38,6 +38,7 @@ enum plink_state {
 	BLOCKED
 };
 
+#if 0
 static void peek(struct nl_msg *msg)
 {
 	struct nlmsghdr * nlh;
@@ -65,6 +66,7 @@ static void peek(struct nl_msg *msg)
 		i++;
 	}
 }
+#endif
 
 /* 
  * iw-4.9 station.c 

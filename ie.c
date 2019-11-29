@@ -11,8 +11,6 @@ const uint8_t ms_oui[3] = { 0x00, 0x50, 0xf2 };
 const uint8_t ieee80211_oui[3] = { 0x00, 0x0f, 0xac };
 const uint8_t wfa_oui[3] = { 0x50, 0x6f, 0x9a };
 
-#define POISON 0xee
-
 #define IE_LIST_DEFAULT_MAX 32
 
 

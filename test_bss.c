@@ -13,7 +13,7 @@ int main(void)
 	size_t off = offsetof(struct BSS, node);
 	DBG("off=%zu\n", off);
 	DBG("%p %p %p %p\n", (void *)bss, (void *)&bss->node, (void *)bss_list.next, (void *)bss_list.prev);
-	bss = (struct BSS*)((void *)bss_list.next - offsetof(struct BSS, node));
+	bss = (struct BSS*)((unsigned char*)bss_list.next - offsetof(struct BSS, node));
 	DBG("bss=%p\n", (void *)bss);
 	XASSERT(bss->cookie == BSS_COOKIE, bss->cookie);
 
@@ -31,14 +31,44 @@ int main(void)
 	list_add(&bss->node, &bss_list);
 
 	struct list_head* tmp;
-	char mac[ETH_ALEN+1];
+	char mac_str[64];
 	list_for_each(tmp, &bss_list) {
 		bss = list_entry(tmp, struct BSS, node);
 		XASSERT(bss->cookie == BSS_COOKIE, bss->cookie);
-		mac_addr_n2a(mac, bss->bssid);
-		INFO("%s\n", mac);
+		mac_addr_n2a(mac_str, bss->bssid);
+		INFO("%s\n", mac_str);
 	}
 
+	bss = list_first_entry(&bss_list, typeof(*bss), node);
+	DBG("%d %p\n", __LINE__, (void *)bss);
+	XASSERT(bss->cookie == BSS_COOKIE, bss->cookie);
+
+	bss = list_next_entry(bss, node);
+	DBG("%d %p\n", __LINE__, (void *)bss);
+	XASSERT(bss->cookie == BSS_COOKIE, bss->cookie);
+
+	bss = list_last_entry(&bss_list, typeof(*bss), node);
+	DBG("%d %p\n", __LINE__, (void *)bss);
+	XASSERT(bss->cookie == BSS_COOKIE, bss->cookie);
+
+	list_for_each_entry(bss, &bss_list, node) {
+		DBG("%p\n", (void *)bss);
+		XASSERT(bss->cookie == BSS_COOKIE, bss->cookie);
+		mac_addr_n2a(mac_str, bss->bssid);
+		INFO("%s\n", mac_str);
+	}
+
+	while( !list_empty(&bss_list)) {
+		bss = list_first_entry(&bss_list, typeof(*bss), node);
+		if (!bss) {
+			break;
+		}
+
+		XASSERT(bss->cookie == BSS_COOKIE, bss->cookie);
+		list_del(&bss->node);
+		XASSERT(bss->cookie == BSS_COOKIE, bss->cookie);
+		bss_free(&bss);
+	}
 
 	return EXIT_SUCCESS;
 }

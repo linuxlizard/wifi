@@ -64,9 +64,11 @@ test_bytebuf.o:test_bytebuf.c bytebuf.h xassert.h log.h
 test_bss:test_bss.o bss.o ie.o list_debug.o bug.o $(CORE_O)
 test_bss.o:test_bss.c $(CORE_H)
 
-test: test_bytebuf test_ie
-	valgrind --leak-check=yes ./test_bytebuf
-	valgrind --leak-check=yes ./test_ie
+VALGRIND_OPTS=--error-exitcode=1 --leak-check=yes
+test: test_bytebuf test_ie test_bss
+	valgrind  $(VALGRIND_OPTS) ./test_bytebuf
+	valgrind $(VALGRIND_OPTS)  ./test_ie
+	valgrind $(VALGRIND_OPTS)  ./test_bss
 
 clean:
 	$(RM) *.o scan-event scan-event-ev test_bytebuf test_xassert test_ie
