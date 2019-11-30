@@ -16,19 +16,19 @@ CORE_O:=xassert.o log.o hdump.o util.o
 
 all:scan-event-ev scan-dump
 
-scan-event: scan-event.o hdump.o iw-scan.o nlnames.o log.o
+scan-event: scan-event.o hdump.o iw-scan.o nlnames.o log.o list_debug.o bug.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
 scan-event.o: scan-event.c
 	$(CC) $(CFLAGS) -c scan-event.c -o scan-event.o 
 
-scan-event-ev: scan-event-ev.o $(CORE_O) iw-scan.o nlnames.o bytebuf.o ie.o
+scan-event-ev: scan-event-ev.o $(CORE_O) iw-scan.o nlnames.o bytebuf.o ie.o list_debug.o bug.o
 	$(CC) $(LDFLAGS) -lev -o $@ $^
 
 scan-event-ev.o: scan-event-ev.c iw-scan.h bytebuf.h $(CORE_H)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-scan-dump: scan-dump.o iw.o $(CORE_O) nlnames.o ie.o bss.o
+scan-dump: scan-dump.o iw.o $(CORE_O) nlnames.o ie.o bss.o list_debug.o bug.o
 	$(CC) $(LDFLAGS) -lev -o $@ $^
 
 scan-dump.o: scan-dump.c iw.h $(CORE_H)

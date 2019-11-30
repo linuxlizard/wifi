@@ -16,12 +16,15 @@ struct BSS
 	uint32_t cookie;
 	struct list_head node;
 	macaddr bssid;
+	char bssid_str[24];
 
 	struct IE_List ie_list;
 };
 
 struct BSS* bss_new(macaddr bssid);
 void bss_free(struct BSS** pbss);
+
+void bss_free_list(struct list_head* list);
 
 #endif
 

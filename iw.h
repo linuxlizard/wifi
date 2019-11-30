@@ -9,13 +9,14 @@
 #include <linux/nl80211.h>
 
 #include "ie.h"
+#include "bss.h"
 
 void peek_nla_attr( struct nlattr* tb_msg[], size_t count);
 //void peek_nla_bss(struct nlattr* bss_msg[], size_t count);
 //void peek_nla_bss(const struct nlattr* bss_msg[const static NL80211_BSS_MAX], size_t count);
 
 int parse_nla_ies(struct nlattr* ies, struct IE_List* ie_list);
-int parse_nla_bss(struct nlattr* attr);
+int parse_nla_bss(struct nlattr* attr, struct BSS** pbss);
 
 #endif
 

@@ -52,39 +52,61 @@ int parse_nla_ies(struct nlattr* ies, struct IE_List* ie_list)
 	return 0;
 }
 
-int parse_nla_bss(struct nlattr* attr)
+int parse_nla_bss(struct nlattr* attr, struct BSS** pbss)
 {
-	struct nlattr *bss[5];
-//	struct nlattr *bss[NL80211_BSS_MAX + 1];
+	struct nlattr *bss_attr[NL80211_BSS_MAX + 1];
+	struct BSS* bss = NULL;
+	int err;
 
-	if (nla_parse_nested(bss, NL80211_BSS_MAX,
+	*pbss = NULL;
+
+	if (nla_parse_nested(bss_attr, NL80211_BSS_MAX,
 			     attr,
 			     bss_policy)) {
 		ERR("%s failed to parse nested attributes!\n", __func__);
 		return -EINVAL;
 	}
 
-	peek_nla_bss(bss, NL80211_BSS_MAX);
+	peek_nla_bss(bss_attr, NL80211_BSS_MAX);
 
-	struct IE_List ie_list = IE_LIST_BLANK;
-	int err = ie_list_init(&ie_list);
-	if (err) {
-		return err;
+	if (!bss_attr[NL80211_BSS_BSSID]) {
+		ERR("%s invalid network found; mssing BSSID\n", __func__);
+		return -EINVAL;
 	}
 
-	struct nlattr *ies = bss[NL80211_BSS_INFORMATION_ELEMENTS];
+	// capture the BSSID, create a new BSS struct for this network
+	uint8_t *ptr = nla_data(bss_attr[NL80211_BSS_BSSID]);
+	bss = bss_new(ptr);
+	if (!bss) {
+		return -ENOMEM;
+	}
+	memcpy(bss->bssid, ptr, ETH_ALEN);
+	mac_addr_n2a(bss->bssid_str, bss->bssid);
+	INFO("%s found bssid=%s\n", __func__, bss->bssid_str);
+
+	/* 
+	 * From this point on, use 'goto fail' on error so the BSS will be freed
+	 * before return
+	 */
+
+	struct nlattr *ies = bss_attr[NL80211_BSS_INFORMATION_ELEMENTS];
 	if (ies) {
-		err = parse_nla_ies(ies, &ie_list);
+		err = parse_nla_ies(ies, &bss->ie_list);
 		if (err) {
 			goto fail;
 		}
 	}
 
-	ie_list_peek(__func__, &ie_list);
+	ie_list_peek(__func__, &bss->ie_list);
 
+	PTR_ASSIGN(*pbss, bss);
+	DBG("%s success\n", __func__);
 	return 0;
 fail:
-	ie_list_release(&ie_list);
+	if (bss) {
+		bss_free(&bss);
+	}
+
 	return err;
 }
 
