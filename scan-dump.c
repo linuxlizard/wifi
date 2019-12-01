@@ -8,6 +8,39 @@
 #include "list.h"
 #include "bss.h"
 
+
+static int error_handler(struct sockaddr_nl *nla, struct nlmsgerr *err, void *arg)
+{
+	ERR("%s\n", __func__);
+	(void)nla;
+	(void)err;
+	(void)arg;
+
+	return NL_STOP;
+}
+
+static int finish_handler(struct nl_msg *msg, void *arg)
+{
+	DBG("%s\n", __func__);
+
+	(void)msg;
+
+	int *ret = (int *)arg;
+	*ret = 0;
+	return NL_SKIP;
+}
+
+static int ack_handler(struct nl_msg *msg, void *arg)
+{
+	DBG("%s\n", __func__);
+	(void)msg;
+
+	int *ret = (int*)(arg);
+	*ret = 0;
+	return NL_STOP;
+}
+
+
 static int valid_handler(struct nl_msg *msg, void *arg)
 {
 	struct list_head* bss_list = (struct list_head*)arg;
@@ -55,7 +88,12 @@ int main(int argc, char* argv[])
 
 	LIST_HEAD(bss_list);
 	struct nl_cb* cb = nl_cb_alloc(NL_CB_DEFAULT);
+
 	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, valid_handler, (void*)&bss_list);
+	int cb_err = 1;
+	nl_cb_err(cb, NL_CB_CUSTOM, error_handler, &cb_err);
+	nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, finish_handler, &cb_err);
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler, &cb_err);
 
 	struct nl_sock* nl_sock = nl_socket_alloc_cb(cb);
 	int err = genl_connect(nl_sock);
@@ -71,6 +109,10 @@ int main(int argc, char* argv[])
 
 	nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifidx);
 	err = nl_send_auto(nl_sock, msg);
+	if (err < 0) {
+		ERR("nl_send_auto failed err=%d\n", err);
+		goto leave;
+	}
 
 	while (err > 0) {
 		err = nl_recvmsgs(nl_sock, cb);
@@ -90,6 +132,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
+leave:
 	bss_free_list(&bss_list);
 	nl_cb_put(cb);
 	nl_socket_free(nl_sock);
