@@ -114,7 +114,7 @@ int main(int argc, char* argv[])
 		goto leave;
 	}
 
-	while (err > 0) {
+	while (cb_err > 0) {
 		err = nl_recvmsgs(nl_sock, cb);
 		INFO("nl_recvmsgs err=%d\n", err);
 	}
@@ -125,7 +125,13 @@ int main(int argc, char* argv[])
 		const struct IE* ie = ie_list_find_id(&bss->ie_list, IE_SSID);
 		if (ie) {
 			const struct IE_SSID *ie_ssid = IE_CAST(ie, const struct IE_SSID);
-			u_printf("%s ssid=%S\n", bss->bssid_str, ie_ssid->ssid);
+			if (ie_ssid->ssid_len) {
+				u_printf("%s ssid=%S\n", bss->bssid_str, ie_ssid->ssid);
+				hex_dump("ssid", ie->buf, ie->len);
+			}
+			else {
+				u_printf("%s ssid=<hidden>\n", bss->bssid_str);
+			}
 		}
 		else {
 			INFO("%s <no ssid>\n", bss->bssid_str);
