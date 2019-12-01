@@ -37,7 +37,7 @@ scan-event-ev.o: scan-event-ev.c iw-scan.h bytebuf.h $(CORE_H)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 scan-dump: scan-dump.o iw.o $(CORE_O) nlnames.o ie.o bss.o list_debug.o bug.o
-	$(CC) $(LDFLAGS) -licuio -lev -o $@ $^
+	$(CC) $(LDFLAGS) -licuio -o $@ $^
 
 scan-dump.o: scan-dump.c iw.h $(CORE_H)
 	$(CC) $(CFLAGS) -c $< -o $@
