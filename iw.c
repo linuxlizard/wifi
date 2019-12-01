@@ -46,6 +46,7 @@ int parse_nla_ies(struct nlattr* ies, struct IE_List* ie_list)
 {
 	int err = decode_ie_buf( nla_data(ies), nla_len(ies), ie_list);
 	if (err) {
+		ERR("%s IE buffer decode failed err=%d\n", __func__, err);
 		return err;
 	}
 

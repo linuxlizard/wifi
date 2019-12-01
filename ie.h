@@ -85,11 +85,17 @@ struct IE
 // standard says 32 octets but Unicode seriously muddies the water
 #define SSID_MAX_LEN 32
 
+#define IE_CAST(ieptr, type)\
+	((type*)ie->specific)
+
 struct IE_SSID
 {
 	IE_SPECIFIC_FIELDS
 
-	UText* ssid;
+	// http://userguide.icu-project.org/strings
+	// http://userguide.icu-project.org/strings/utf-8
+	UChar ssid[SSID_MAX_LEN*2];
+	int32_t ssid_len;
 };
 
 struct IE_Extended_Capabilities
@@ -124,6 +130,7 @@ int ie_list_init(struct IE_List* list);
 void ie_list_release(struct IE_List* list);
 int ie_list_move_back(struct IE_List* list, struct IE** pie);
 void ie_list_peek(const char *label, struct IE_List* list);
+const struct IE* ie_list_find_id(struct IE_List* list, IE_ID id);
 
 int decode_ie_buf( const uint8_t* buf, size_t len, struct IE_List* ielist);
 

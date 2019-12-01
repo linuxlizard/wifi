@@ -54,6 +54,7 @@ int main(void)
 	XASSERT(err==0, err);
 	XASSERT(ie_list.count == 4, ie_list.count);
 
+	// verify counts
 	size_t i, count=0;
 	for (i=0 ; i<ie_list.max ; i++) {
 		if (ie_list.ieptrlist[i]) {
@@ -62,6 +63,7 @@ int main(void)
 	}
 	XASSERT(count==4, count);
 
+	// verify contents
 	struct IE** pie = ie_list.ieptrlist;
 	struct IE* ie = *pie;
 	ie_validate(ie, IE_EXTENDED_CAPABILITIES, 8);
@@ -83,7 +85,11 @@ int main(void)
 	pie++; ie = *pie;
 	ie_validate(ie, IE_MESH_ID, 0);
 
-	// loopy loop
+	// search
+	const struct IE* cie = ie_list_find_id(&ie_list, IE_EXTENDED_CAPABILITIES);
+	XASSERT(cie!=NULL, 0);
+
+	// verify list can grow
 	for (i=0 ; i<1024 ; i++) {
 		ie = ie_new(vendor_ie[10], vendor_ie[11], (const uint8_t*)&vendor_ie[12]);
 		XASSERT(ie, 0);

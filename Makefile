@@ -1,14 +1,22 @@
 # davep 20191123 ; tinkering with libevent and libev
 # http://www.wangafu.net/~nickm/libevent-book/TOC.html
 # http://software.schmorp.de/pkg/libev.html
-# https://github.com/P-p-H-d/mlib
 #
+# uses ICU 
+# 	http://site.icu-project.org/
+# 	http://userguide.icu-project.org/
+# 	https://unicode-org.github.io/icu-docs/apidoc/released/icu4c/index.html
+
 CC=gcc
 PKGS=libnl-3.0 libnl-genl-3.0 icu-i18n
 #PKGS=libnl-3.0 libnl-genl-3.0 libevent_core libevent libevent_extra
 CFLAGS:=-g -Wall -Wpedantic -Wextra $(shell pkg-config --cflags $(PKGS))
 # shamelessly copied extra warnings from m*lib https://github.com/P-p-H-d/mlib
 CFLAGS+=-Wshadow -Wpointer-arith -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes -Wswitch-default -Wswitch-enum -Wcast-align -Wpointer-arith -Wbad-function-cast -Wstrict-overflow=5 -Wstrict-prototypes -Winline -Wundef -Wnested-externs -Wcast-qual -Wshadow -Wunreachable-code -Wlogical-op -Wstrict-aliasing=2 -Wredundant-decls -Wold-style-definition -Wno-unused-function
+
+# http://userguide.icu-project.org/strings/utf-8
+CFLAGS+=-DU_CHARSET_IS_UTF8=1
+
 LDFLAGS:=-g $(shell pkg-config --libs $(PKGS))
 
 CORE_H:=xassert.h log.h core.h hdump.h
@@ -29,7 +37,7 @@ scan-event-ev.o: scan-event-ev.c iw-scan.h bytebuf.h $(CORE_H)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 scan-dump: scan-dump.o iw.o $(CORE_O) nlnames.o ie.o bss.o list_debug.o bug.o
-	$(CC) $(LDFLAGS) -lev -o $@ $^
+	$(CC) $(LDFLAGS) -licuio -lev -o $@ $^
 
 scan-dump.o: scan-dump.c iw.h $(CORE_H)
 	$(CC) $(CFLAGS) -c $< -o $@

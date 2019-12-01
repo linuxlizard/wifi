@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <net/if.h>
+#include <unicode/ustdio.h>
 
 #include "core.h"
 #include "iw.h"
@@ -79,7 +80,14 @@ int main(int argc, char* argv[])
 	struct BSS* bss;
 	list_for_each_entry(bss, &bss_list, node) {
 		XASSERT(bss->cookie == BSS_COOKIE, bss->cookie);
-		INFO("%s\n", bss->bssid_str);
+		const struct IE* ie = ie_list_find_id(&bss->ie_list, IE_SSID);
+		if (ie) {
+			const struct IE_SSID *ie_ssid = IE_CAST(ie, const struct IE_SSID);
+			u_printf("%s ssid=%S\n", bss->bssid_str, ie_ssid->ssid);
+		}
+		else {
+			INFO("%s <no ssid>\n", bss->bssid_str);
+		}
 	}
 
 	bss_free_list(&bss_list);

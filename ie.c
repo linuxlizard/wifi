@@ -3,6 +3,9 @@
 #include <errno.h>
 
 #include <unicode/utypes.h>
+#include <unicode/ustdio.h>
+
+#define HAVE_MODULE_LOGLEVEL 1
 
 #include "core.h"
 #include "ie.h"
@@ -20,6 +23,7 @@ const uint8_t wfa_oui[3] = { 0x50, 0x6f, 0x9a };
 	spec_ie->base = ie;\
 	ie->free = free_fn
 
+static int module_loglevel=LOG_LEVEL_INFO;
 
 static void ie_ssid_free(struct IE* ie)
 {
@@ -27,9 +31,6 @@ static void ie_ssid_free(struct IE* ie)
 
 	XASSERT(ie_ssid->cookie == IE_SPECIFIC_COOKIE, ie_ssid->cookie);
 
-	if (ie_ssid->ssid) {
-		utext_close(ie_ssid->ssid);
-	}
 	PTR_FREE(ie->specific);
 }
 
@@ -45,7 +46,16 @@ static int ie_ssid_new(struct IE* ie)
 	INIT_SPEC(ie, ie_ssid, ie_ssid_free);
 
 	UErrorCode status = U_ZERO_ERROR;
-	ie_ssid->ssid = utext_openUTF8(ie_ssid->ssid, (const char*)ie->buf, ie->len, &status);
+	u_strFromUTF8( ie_ssid->ssid, sizeof(ie_ssid->ssid), &ie_ssid->ssid_len, ie->buf, ie->len, &status);
+	if ( !U_SUCCESS(status)) {
+		PTR_FREE(ie_ssid);
+		ERR("%s unicode parse fail status=%d\n", __func__, status);
+		return -EINVAL;
+	}
+
+	if (ie_ssid->ssid_len > SSID_MAX_LEN) {
+		WARN("ssid too long len=%d\n", ie_ssid->ssid_len);
+	}
 
 	return 0;
 }
@@ -130,6 +140,7 @@ struct IE* ie_new(uint8_t id, uint8_t len, const uint8_t* buf)
 	if (constructors[id]) {
 		int err = constructors[id](ie);
 		if (err) {
+			ERR("%s id=%d failed err=%d\n", __func__, id, err);
 			ie_delete(&ie);
 			return NULL;
 		}
@@ -184,6 +195,7 @@ int decode_ie_buf( const uint8_t* ptr, size_t len, struct IE_List* ie_list)
 
 		struct IE* ie = ie_new(id, ielen, ptr);
 		if (!ie) {
+			ERR("%s failed to create ie\n", __func__);
 			return -ENOMEM;
 		}
 		err = ie_list_move_back(ie_list, &ie);
@@ -258,5 +270,18 @@ void ie_list_peek(const char *label, struct IE_List* list)
 		DBG("%s IE id=%d len=%zu\n", label, ie->id, ie->len);
 	}
 
+}
+
+const struct IE* ie_list_find_id(struct IE_List* list, IE_ID id)
+{
+	// search for the first instance of an id; note this will not work when
+	// there are duplicates such as vendor id
+	for (size_t i=0 ; i<list->count ; i++) {
+		if (list->ieptrlist[i]->id == id) {
+			return (const struct IE*)list->ieptrlist[i];
+		}
+	}
+
+	return (const struct IE*)NULL;
 }
 
